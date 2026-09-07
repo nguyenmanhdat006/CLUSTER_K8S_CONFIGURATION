@@ -1,4 +1,4 @@
-# GitOps — Ứng dụng Ecommerce (3 môi trường)
+# K8S Platform + ArgoCD + Kube Prometheus Stack
 
 Triển khai ứng dụng ecommerce lên Kubernetes theo mô hình **GitOps** với Argo CD, quản lý
 ba môi trường **dev / staging / prod** bằng kỹ thuật **Kustomize base/overlays**.
@@ -11,7 +11,7 @@ Argo CD tự động đồng bộ trạng thái cluster cho khớp với Git.
 ## Kiến trúc thư mục
 
 ```
-gitops-demo/
+cluster/
 ├── argocd/                      # Các Argo CD Application (apply thủ công 1 lần)
 │   ├── dev.yaml                 #   → theo dõi app/overlays/dev
 │   ├── staging.yaml             #   → theo dõi app/overlays/staging
