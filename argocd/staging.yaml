@@ -1,4 +1,3 @@
-# Application cho môi trường staging. Apply tay 1 lần (hoặc apply cả thư mục argocd/).
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -7,7 +6,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/nguyenmanhdat006/cluster_k8s_argocd
+    repoURL: https://github.com/nguyenmanhdat006/CLUSTER_K8S_CONFIGURATION
     targetRevision: main
     path: app/overlays/staging
   destination:

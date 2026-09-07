@@ -1,0 +1,29 @@
+# Application cho monitoring. Apply tay 1 lần: kubectl apply -f argocd/monitoring.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: monitoring
+  namespace: argocd
+spec:
+  project: default
+  sources:
+    - repoURL: https://prometheus-community.github.io/helm-charts
+      chart: kube-prometheus-stack
+      targetRevision: 90.0.0
+      helm:
+        releaseName: monitoring
+        valueFiles:
+          - $values/infrastructure/monitoring/values.yaml
+    - repoURL: https://github.com/nguyenmanhdat006/CLUSTER_K8S_CONFIGURATION
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true                  # chart nhiều CRD lớn -> tránh lỗi "too long"

@@ -15,7 +15,12 @@ gitops-demo/
 ├── argocd/                      # Các Argo CD Application (apply thủ công 1 lần)
 │   ├── dev.yaml                 #   → theo dõi app/overlays/dev
 │   ├── staging.yaml             #   → theo dõi app/overlays/staging
-│   └── prod.yaml                #   → theo dõi app/overlays/prod
+│   ├── prod.yaml                #   → theo dõi app/overlays/prod
+│   └── monitoring.yaml          #   → cài kube-prometheus-stack (xem phần "Giám sát")
+│
+├── infrastructure/              # Công cụ vận hành cluster (không phải app người dùng)
+│   └── monitoring/
+│       └── values.yaml          #   Values cho chart kube-prometheus-stack
 │
 ├── app/
 │   ├── base/                    # Manifest DÙNG CHUNG, trung lập môi trường
@@ -119,12 +124,9 @@ sealed-secrets mới, nên `backend-sealed-secret.yaml` hiện có trong `app/ov
 ## Hướng dẫn triển khai
 
 ### Bước 1 — Cấu hình repo
-Mở ba file trong `argocd/`, thay `REPLACE_GIT_REPO_URL` bằng URL repository của bạn:
-
-```bash
-GIT_URL="https://github.com/YOUR-ORG/gitops-demo.git"
-grep -rl REPLACE_GIT_REPO_URL . | xargs sed -i "s|REPLACE_GIT_REPO_URL|$GIT_URL|g"
-```
+Các file Application trong `argocd/` (`dev.yaml`, `staging.yaml`, `prod.yaml`, `monitoring.yaml`)
+đã trỏ sẵn `repoURL` về `https://github.com/nguyenmanhdat006/CLUSTER_K8S_CONFIGURATION`. Nếu
+fork sang repo khác, cập nhật lại URL này trong cả bốn file trước khi apply.
 
 ### Bước 2 — Đẩy lên Git
 Argo CD đọc cấu hình từ Git, không đọc từ máy cục bộ. Commit và push toàn bộ trước.
@@ -219,23 +221,67 @@ trường cùng nhận thay đổi.
 **Thêm môi trường mới (ví dụ uat):** sao chép một overlay, sửa namespace / host / replicas,
 tạo `argocd/uat.yaml`, apply.
 
+## Giám sát (monitoring)
+
+Prometheus + Grafana + Alertmanager, cài qua Argo CD bằng Helm chart
+`kube-prometheus-stack` (multi-source: chart từ internet + `values.yaml` từ repo Git này).
+Đây là công cụ vận hành cluster, tách biệt khỏi `app/` — nằm ở `infrastructure/monitoring/`.
+
+### Cài đặt
+
+1. `argocd/monitoring.yaml` đã ghim sẵn `targetRevision: 90.0.0` (bản mới nhất của chart tại
+   thời điểm viết). Muốn nâng cấp về sau:
+   ```bash
+   helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+   helm repo update
+   helm search repo prometheus-community/kube-prometheus-stack | head
+   ```
+   rồi sửa lại số version trong `argocd/monitoring.yaml`.
+
+2. `repoURL` trong `argocd/monitoring.yaml` đã trỏ sẵn về repo này (xem "Bước 1" ở trên).
+
+3. Đổi `adminPassword` trong `infrastructure/monitoring/values.yaml` trước khi push.
+
+4. Commit + push, rồi apply Application (tách biệt với `argocd/<env>.yaml`, không nằm
+   trong vòng lặp GitOps tự động của app):
+   ```bash
+   kubectl apply -f argocd/monitoring.yaml
+   ```
+
+### Truy cập (NodePort)
+
+- Grafana:      `http://<node-ip>:30300` (admin / mật khẩu bạn đặt)
+- Prometheus:   `http://<node-ip>:30090`
+- Alertmanager: `http://<node-ip>:30093`
+
+### Kiểm tra
+
+```bash
+kubectl get pods -n monitoring
+kubectl get pods -n monitoring -o wide     # xem pod nằm ở node nào
+```
+
 ## Vai trò từng thành phần
 
 | Thành phần | Vai trò |
 |------------|---------|
 | `argocd/<env>.yaml` | Argo CD Application: theo dõi một overlay, đồng bộ vào một namespace |
+| `argocd/monitoring.yaml` | Argo CD Application: cài `kube-prometheus-stack` từ `infrastructure/monitoring/values.yaml` |
 | `app/base/` | Manifest gốc, dùng chung cho mọi môi trường |
 | `app/overlays/<env>/kustomization.yaml` | Ghép base + khai báo khác biệt của môi trường |
 | `app/overlays/<env>/hpa.yaml` | HorizontalPodAutoscaler cho backend + frontend, ngưỡng theo môi trường |
 | `app/overlays/prod/resources-patch.yaml` | Patch tài nguyên (requests/limits) riêng cho prod |
 | `app/overlays/<env>/namespace.yaml` | Namespace riêng của môi trường |
 | `app/overlays/<env>/backend-sealed-secret.yaml` | Secret đã seal cho namespace tương ứng |
+| `infrastructure/monitoring/values.yaml` | Values cho chart `kube-prometheus-stack` (Grafana/Prometheus/Alertmanager) |
 
 ## Dọn dẹp
 
 ```bash
-kubectl delete -f argocd/        # xóa các Application; prune dọn theo tài nguyên đã tạo
+kubectl delete -f argocd/        # xóa TẤT CẢ Application, kể cả monitoring; prune dọn theo tài nguyên đã tạo
 ```
+
+Chỉ muốn gỡ riêng monitoring: `kubectl delete -f argocd/monitoring.yaml`.
 
 ## Lưu ý bảo mật
 

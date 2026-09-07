@@ -1,0 +1,56 @@
+# values.yaml cho kube-prometheus-stack — cấu hình chuẩn, đầy đủ.
+# Các thành phần (Prometheus, Grafana, Alertmanager, node-exporter,
+
+# ---- Grafana ----
+grafana:
+  enabled: true
+  adminPassword: "demo123456"     # ĐỔI mật khẩu này trước khi push
+  service:
+    type: NodePort
+    nodePort: 30300                  # vào Grafana qua http://<node-ip>:30300
+
+# ---- Prometheus ----
+prometheus:
+  enabled: true
+  service:
+    type: NodePort
+    nodePort: 30090                  # vào Prometheus UI qua http://<node-ip>:30090
+  prometheusSpec:
+    retention: 10d                   # giữ mặc định 10 ngày
+    # Bật để Prometheus tự nhận mọi ServiceMonitor/PodMonitor trong cluster,
+    # kể cả cái không mang label của release này (tiện khi thêm app sau).
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+
+# ---- Alertmanager ----
+alertmanager:
+  enabled: true
+  service:
+    type: NodePort
+    nodePort: 30093                  # vào Alertmanager qua http://<node-ip>:30093
+
+# ---- Bộ thu thập số liệu ----
+nodeExporter:
+  enabled: true                      # DaemonSet — chạy trên MỌI node để lấy metrics từng máy
+kubeStateMetrics:
+  enabled: true
+
+# ---- Điều chỉnh cho kubeadm ----
+# Trên kubeadm, mấy control-plane component bind vào 127.0.0.1 nên Prometheus
+# hay scrape lỗi. Đây là cấu hình chuẩn để chúng scrape được (không phải tắt đi).
+kubeControllerManager:
+  service:
+    enabled: true
+  serviceMonitor:
+    https: true
+    insecureSkipVerify: true
+kubeScheduler:
+  service:
+    enabled: true
+  serviceMonitor:
+    https: true
+    insecureSkipVerify: true
+kubeProxy:
+  enabled: true
+kubeEtcd:
+  enabled: true
