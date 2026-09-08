@@ -22,7 +22,7 @@ prometheus:
     # kể cả cái không mang label của release này (tiện khi thêm app sau).
     serviceMonitorSelectorNilUsesHelmValues: false
     podMonitorSelectorNilUsesHelmValues: false
-    ruleSelectorNilUsesHelmValues: false
+    ruleSelectorNilUsesHelmValues: false  
 
 # ---- Alertmanager ----
 alertmanager:
