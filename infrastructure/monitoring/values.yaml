@@ -16,11 +16,13 @@ prometheus:
     type: NodePort
     nodePort: 30090                  # vào Prometheus UI qua http://<node-ip>:30090
   prometheusSpec:
-    retention: 10d                   # giữ mặc định 10 ngày
+    retention: 15d                   # giữ mặc định 10 ngày
+    retentionSize: 3GB
     # Bật để Prometheus tự nhận mọi ServiceMonitor/PodMonitor trong cluster,
     # kể cả cái không mang label của release này (tiện khi thêm app sau).
     serviceMonitorSelectorNilUsesHelmValues: false
     podMonitorSelectorNilUsesHelmValues: false
+    ruleSelectorNilUsesHelmValues: false
 
 # ---- Alertmanager ----
 alertmanager:
