@@ -1,0 +1,17 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: monitoring-extras
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/nguyenmanhdat006/CLUSTER_K8S_CONFIGURATION
+    targetRevision: main
+    path: infrastructure/monitoring/servicemonitors
+  destination:
+    server: https://kubernetes.default.svc
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
