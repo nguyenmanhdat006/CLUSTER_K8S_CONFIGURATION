@@ -13,7 +13,7 @@ spec:
     spec:
       containers:
         - name: backend
-          image: nguyendat0810/ecommerce-backend:v1
+          image: nguyendat0810/ecommerce-backend:v2
           ports:
             - containerPort: 8080
           envFrom:
