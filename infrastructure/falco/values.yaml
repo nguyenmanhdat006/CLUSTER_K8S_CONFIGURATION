@@ -47,113 +47,70 @@ customRules:
   rules-host-audit.yaml: |-
     - rule: Sửa cấu hình control plane trên máy chủ
       desc: Phát hiện ghi vào /etc/kubernetes/manifests trên máy chủ, ngoài quy trình GitOps
-      condition: >
-        open_write
-        and fd.name startswith /host/etc/kubernetes/manifests
-      output: >
-        Ghi vào cấu hình control plane trên máy chủ
-        (file=%fd.name user=%user.name process=%proc.name node=%k8s.node.name)
+      condition: open_write and fd.name startswith /host/etc/kubernetes/manifests
+      output: "Ghi vào cấu hình control plane trên máy chủ (file=%fd.name user=%user.name process=%proc.name node=%k8s.node.name)"
       priority: CRITICAL
       tags: [host, filesystem, mitre_persistence]
 
     - rule: Đụng chứng chỉ cụm trên máy chủ
       desc: Phát hiện ghi vào /etc/kubernetes/pki trên máy chủ
-      condition: >
-        open_write
-        and fd.name startswith /host/etc/kubernetes/pki
-      output: >
-        Ghi vào chứng chỉ cụm trên máy chủ
-        (file=%fd.name user=%user.name process=%proc.name node=%k8s.node.name)
+      condition: open_write and fd.name startswith /host/etc/kubernetes/pki
+      output: "Ghi vào chứng chỉ cụm trên máy chủ (file=%fd.name user=%user.name process=%proc.name node=%k8s.node.name)"
       priority: CRITICAL
       tags: [host, filesystem, mitre_credential_access]
 
     - rule: Đọc kubeconfig quản trị trên máy chủ
       desc: Phát hiện đọc /etc/kubernetes/admin.conf trên máy chủ — bước đầu của đánh cắp quyền
-      condition: >
-        open_read
-        and fd.name = /host/etc/kubernetes/admin.conf
-        and not proc.name in (kubelet, kube-apiserver, etcd)
-      output: >
-        Đọc kubeconfig quản trị trên máy chủ
-        (file=%fd.name user=%user.name process=%proc.name node=%k8s.node.name)
+      condition: open_read and fd.name = /host/etc/kubernetes/admin.conf and not proc.name in (kubelet, kube-apiserver, etcd)
+      output: "Đọc kubeconfig quản trị trên máy chủ (file=%fd.name user=%user.name process=%proc.name node=%k8s.node.name)"
       priority: CRITICAL
       tags: [host, filesystem, mitre_credential_access]
 
     - rule: Đụng dữ liệu etcd trên máy chủ
       desc: Phát hiện ghi vào /var/lib/etcd trên máy chủ, ngoài chính tiến trình etcd
-      condition: >
-        open_write
-        and fd.name startswith /host/var/lib/etcd
-        and not proc.name = etcd
-      output: >
-        Ghi vào dữ liệu etcd trên máy chủ
-        (file=%fd.name user=%user.name process=%proc.name node=%k8s.node.name)
+      condition: open_write and fd.name startswith /host/var/lib/etcd and not proc.name = etcd
+      output: "Ghi vào dữ liệu etcd trên máy chủ (file=%fd.name user=%user.name process=%proc.name node=%k8s.node.name)"
       priority: CRITICAL
       tags: [host, filesystem, mitre_impact]
 
     - rule: Sửa quyền sudo trên máy chủ
       desc: Phát hiện ghi vào /etc/sudoers hoặc /etc/sudoers.d trên máy chủ
-      condition: >
-        open_write
-        and fd.name startswith /host/etc/sudoers
-      output: >
-        Ghi vào cấu hình sudo trên máy chủ
-        (file=%fd.name user=%user.name process=%proc.name node=%k8s.node.name)
+      condition: open_write and fd.name startswith /host/etc/sudoers
+      output: "Ghi vào cấu hình sudo trên máy chủ (file=%fd.name user=%user.name process=%proc.name node=%k8s.node.name)"
       priority: CRITICAL
       tags: [host, filesystem, mitre_privilege_escalation]
 
     - rule: Tạo hoặc xoá tài khoản trên máy chủ
       desc: Phát hiện ghi vào /etc/passwd trên máy chủ
-      condition: >
-        open_write
-        and fd.name = /host/etc/passwd
-      output: >
-        Ghi vào danh sách tài khoản trên máy chủ
-        (file=%fd.name user=%user.name process=%proc.name node=%k8s.node.name)
+      condition: open_write and fd.name = /host/etc/passwd
+      output: "Ghi vào danh sách tài khoản trên máy chủ (file=%fd.name user=%user.name process=%proc.name node=%k8s.node.name)"
       priority: CRITICAL
       tags: [host, filesystem, mitre_persistence]
 
     - rule: Đổi mật khẩu trên máy chủ
       desc: Phát hiện ghi vào /etc/shadow trên máy chủ
-      condition: >
-        open_write
-        and fd.name = /host/etc/shadow
-      output: >
-        Ghi vào tệp mật khẩu trên máy chủ
-        (file=%fd.name user=%user.name process=%proc.name node=%k8s.node.name)
+      condition: open_write and fd.name = /host/etc/shadow
+      output: "Ghi vào tệp mật khẩu trên máy chủ (file=%fd.name user=%user.name process=%proc.name node=%k8s.node.name)"
       priority: CRITICAL
       tags: [host, filesystem, mitre_credential_access]
 
     - rule: Đổi nhóm quyền trên máy chủ
       desc: Phát hiện ghi vào /etc/group trên máy chủ
-      condition: >
-        open_write
-        and fd.name = /host/etc/group
-      output: >
-        Ghi vào danh sách nhóm quyền trên máy chủ
-        (file=%fd.name user=%user.name process=%proc.name node=%k8s.node.name)
+      condition: open_write and fd.name = /host/etc/group
+      output: "Ghi vào danh sách nhóm quyền trên máy chủ (file=%fd.name user=%user.name process=%proc.name node=%k8s.node.name)"
       priority: WARNING
       tags: [host, filesystem, mitre_privilege_escalation]
 
     - rule: Cài cắm khoá SSH trên máy chủ
       desc: Phát hiện ghi vào authorized_keys trên máy chủ — kỹ thuật cài cắm quyền truy cập phổ biến nhất
-      condition: >
-        open_write
-        and (fd.name startswith /host/root/.ssh
-             or fd.name startswith /host/home/nguyendat/.ssh)
-      output: >
-        Ghi vào authorized_keys trên máy chủ
-        (file=%fd.name user=%user.name process=%proc.name node=%k8s.node.name)
+      condition: open_write and (fd.name startswith /host/root/.ssh or fd.name startswith /host/home/nguyendat/.ssh)
+      output: "Ghi vào authorized_keys trên máy chủ (file=%fd.name user=%user.name process=%proc.name node=%k8s.node.name)"
       priority: CRITICAL
       tags: [host, filesystem, mitre_persistence]
 
     - rule: Nới lỏng chính sách SSH trên máy chủ
       desc: Phát hiện ghi vào /etc/ssh/sshd_config trên máy chủ
-      condition: >
-        open_write
-        and fd.name = /host/etc/ssh/sshd_config
-      output: >
-        Ghi vào cấu hình sshd trên máy chủ
-        (file=%fd.name user=%user.name process=%proc.name node=%k8s.node.name)
+      condition: open_write and fd.name = /host/etc/ssh/sshd_config
+      output: "Ghi vào cấu hình sshd trên máy chủ (file=%fd.name user=%user.name process=%proc.name node=%k8s.node.name)"
       priority: WARNING
       tags: [host, filesystem, mitre_persistence]
