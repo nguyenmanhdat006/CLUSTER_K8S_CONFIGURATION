@@ -12,7 +12,7 @@ spec:
       helm:
         valueFiles:
           - $values/infrastructure/falco/values.yaml
-    - repoURL: <URL-repo-git-cua-ban>
+    - repoURL: https://github.com/nguyenmanhdat006/CLUSTER_K8S_CONFIGURATION
       targetRevision: main
       ref: values
   destination:
