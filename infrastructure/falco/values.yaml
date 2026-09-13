@@ -114,3 +114,9 @@ customRules:
       output: "Ghi vao cau hinh sshd tren may chu (file=%fd.name user=%user.name process=%proc.name pid=%proc.pid)"
       priority: WARNING
       tags: [host, filesystem, mitre_persistence]
+
+    - rule: DEBUG bat moi open_write
+      desc: tam thoi de xem duong dan that
+      condition: open_write and proc.name != falco
+      output: "DEBUG open_write file=%fd.name process=%proc.name"
+      priority: DEBUG
