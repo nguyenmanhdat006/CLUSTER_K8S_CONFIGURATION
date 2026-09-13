@@ -1,44 +1,26 @@
-driver:
-  kind: modern_ebpf
-
-hostPID: true
-tty: true
-
-falco:
-  json_output: true
-  json_include_output_property: true
-
-falcosidekick:
-  enabled: false
-
-metrics:
-  enabled: true
-
-resources:
-  requests:
-    cpu: 100m
-    memory: 300Mi
-  limits:
-    memory: 768Mi
-
-mounts:
-  volumes:
-    - name: var-lib-etcd
-      hostPath:
-        path: /var/lib/etcd
-    - name: root-ssh
-      hostPath:
-        path: /root/.ssh
-    - name: user-ssh
-      hostPath:
-        path: /home/nguyendat/.ssh
-  volumeMounts:
-    - name: var-lib-etcd
-      mountPath: /host/var/lib/etcd
-      readOnly: true
-    - name: root-ssh
-      mountPath: /host/root/.ssh
-      readOnly: true
-    - name: user-ssh
-      mountPath: /host/home/nguyendat/.ssh
-      readOnly: true
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: falco
+  namespace: argocd
+spec:
+  project: default
+  sources:
+    - repoURL: https://falcosecurity.github.io/charts
+      chart: falco
+      targetRevision: "9.1.0"
+      helm:
+        valueFiles:
+          - $values/infrastructure/falco/values.yaml
+    - repoURL: <URL-repo-git-cua-ban>
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: falco
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
