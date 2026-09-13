@@ -1,5 +1,5 @@
 driver:
-  kind: kmod
+  kind: modern_ebpf
 
 hostPID: true
 tty: true
