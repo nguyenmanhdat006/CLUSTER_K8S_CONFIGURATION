@@ -1,5 +1,5 @@
 driver:
-  kind: modern_ebpf
+  kind: ebpf
 
 hostPID: true
 tty: true
