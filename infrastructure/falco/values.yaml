@@ -47,76 +47,70 @@ customRules:
   rules-host-audit.yaml: |-
     - rule: Sửa cấu hình control plane trên máy chủ
       desc: Phát hiện ghi vào /etc/kubernetes/manifests trên máy chủ, ngoài quy trình GitOps
-      condition: open_write and fd.name startswith /host/etc/kubernetes/manifests
+      condition: open_write and fd.name startswith /etc/kubernetes/manifests
       output: "Ghi vao cau hinh control plane tren may chu (file=%fd.name user=%user.name process=%proc.name pid=%proc.pid)"
       priority: CRITICAL
       tags: [host, filesystem, mitre_persistence]
 
     - rule: Đụng chứng chỉ cụm trên máy chủ
       desc: Phát hiện ghi vào /etc/kubernetes/pki trên máy chủ
-      condition: open_write and fd.name startswith /host/etc/kubernetes/pki
+      condition: open_write and fd.name startswith /etc/kubernetes/pki
       output: "Ghi vao chung chi cum tren may chu (file=%fd.name user=%user.name process=%proc.name pid=%proc.pid)"
       priority: CRITICAL
       tags: [host, filesystem, mitre_credential_access]
 
     - rule: Đọc kubeconfig quản trị trên máy chủ
       desc: Phát hiện đọc /etc/kubernetes/admin.conf trên máy chủ — bước đầu của đánh cắp quyền
-      condition: open_read and fd.name = /host/etc/kubernetes/admin.conf and not proc.name in (kubelet, kube-apiserver, etcd)
+      condition: open_read and fd.name = /etc/kubernetes/admin.conf and not proc.name in (kubelet, kube-apiserver, etcd)
       output: "Doc kubeconfig quan tri tren may chu (file=%fd.name user=%user.name process=%proc.name pid=%proc.pid)"
       priority: CRITICAL
       tags: [host, filesystem, mitre_credential_access]
 
     - rule: Đụng dữ liệu etcd trên máy chủ
       desc: Phát hiện ghi vào /var/lib/etcd trên máy chủ, ngoài chính tiến trình etcd
-      condition: open_write and fd.name startswith /host/var/lib/etcd and not proc.name = etcd
+      condition: open_write and fd.name startswith /var/lib/etcd and not proc.name = etcd
       output: "Ghi vao du lieu etcd tren may chu (file=%fd.name user=%user.name process=%proc.name pid=%proc.pid)"
       priority: CRITICAL
       tags: [host, filesystem, mitre_impact]
 
     - rule: Sửa quyền sudo trên máy chủ
       desc: Phát hiện ghi vào /etc/sudoers hoặc /etc/sudoers.d trên máy chủ
-      condition: open_write and fd.name startswith /host/etc/sudoers
+      condition: open_write and fd.name startswith /etc/sudoers
       output: "Ghi vao cau hinh sudo tren may chu (file=%fd.name user=%user.name process=%proc.name pid=%proc.pid)"
       priority: CRITICAL
       tags: [host, filesystem, mitre_privilege_escalation]
 
     - rule: Tạo hoặc xoá tài khoản trên máy chủ
       desc: Phát hiện ghi vào /etc/passwd trên máy chủ
-      condition: open_write and fd.name = /host/etc/passwd
+      condition: open_write and fd.name = /etc/passwd
       output: "Ghi vao danh sach tai khoan tren may chu (file=%fd.name user=%user.name process=%proc.name pid=%proc.pid)"
       priority: CRITICAL
       tags: [host, filesystem, mitre_persistence]
 
     - rule: Đổi mật khẩu trên máy chủ
       desc: Phát hiện ghi vào /etc/shadow trên máy chủ
-      condition: open_write and fd.name = /host/etc/shadow
+      condition: open_write and fd.name = /etc/shadow
       output: "Ghi vao tep mat khau tren may chu (file=%fd.name user=%user.name process=%proc.name pid=%proc.pid)"
       priority: CRITICAL
       tags: [host, filesystem, mitre_credential_access]
 
     - rule: Đổi nhóm quyền trên máy chủ
       desc: Phát hiện ghi vào /etc/group trên máy chủ
-      condition: open_write and fd.name = /host/etc/group
+      condition: open_write and fd.name = /etc/group
       output: "Ghi vao danh sach nhom quyen tren may chu (file=%fd.name user=%user.name process=%proc.name pid=%proc.pid)"
       priority: WARNING
       tags: [host, filesystem, mitre_privilege_escalation]
 
     - rule: Cài cắm khoá SSH trên máy chủ
       desc: Phát hiện ghi vào authorized_keys trên máy chủ — kỹ thuật cài cắm quyền truy cập phổ biến nhất
-      condition: open_write and (fd.name startswith /host/root/.ssh or fd.name startswith /host/home/nguyendat/.ssh)
+      condition: open_write and (fd.name startswith /root/.ssh or fd.name startswith /home/nguyendat/.ssh)
       output: "Ghi vao authorized_keys tren may chu (file=%fd.name user=%user.name process=%proc.name pid=%proc.pid)"
       priority: CRITICAL
       tags: [host, filesystem, mitre_persistence]
 
     - rule: Nới lỏng chính sách SSH trên máy chủ
       desc: Phát hiện ghi vào /etc/ssh/sshd_config trên máy chủ
-      condition: open_write and fd.name = /host/etc/ssh/sshd_config
+      condition: open_write and fd.name = /etc/ssh/sshd_config
       output: "Ghi vao cau hinh sshd tren may chu (file=%fd.name user=%user.name process=%proc.name pid=%proc.pid)"
       priority: WARNING
       tags: [host, filesystem, mitre_persistence]
-
-    - rule: DEBUG bat moi open_write
-      desc: tam thoi de xem duong dan that
-      condition: open_write and proc.name != falco
-      output: "DEBUG open_write file=%fd.name process=%proc.name"
-      priority: DEBUG
