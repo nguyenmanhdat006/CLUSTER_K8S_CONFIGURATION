@@ -1,24 +1,44 @@
 driver:
-  kind: modern_ebpf    # đổi thành "ebpf" nếu kernel < 5.8, kiểm tra bằng uname -r
+  kind: modern_ebpf
 
+hostPID: true
 tty: true
 
 falco:
   json_output: true
   json_include_output_property: true
 
-  # Loai bo bot nhieu tu chinh he thong giam sat, tranh Falco tu bao dong ve Prometheus/Grafana
-  # se tinh chinh sau khi thay ty le canh bao gia
-
 falcosidekick:
-  enabled: false   # tam tat, bat sau neu can dinh tuyen canh bao ra Slack
+  enabled: false
 
 metrics:
-  enabled: true    # bat de Prometheus scrape duoc
+  enabled: true
 
 resources:
   requests:
     cpu: 100m
-    memory: 200Mi
+    memory: 300Mi
   limits:
-    memory: 400Mi   # chan cung, tranh lap lai su co RAM da gap
+    memory: 768Mi
+
+mounts:
+  volumes:
+    - name: var-lib-etcd
+      hostPath:
+        path: /var/lib/etcd
+    - name: root-ssh
+      hostPath:
+        path: /root/.ssh
+    - name: user-ssh
+      hostPath:
+        path: /home/nguyendat/.ssh
+  volumeMounts:
+    - name: var-lib-etcd
+      mountPath: /host/var/lib/etcd
+      readOnly: true
+    - name: root-ssh
+      mountPath: /host/root/.ssh
+      readOnly: true
+    - name: user-ssh
+      mountPath: /host/home/nguyendat/.ssh
+      readOnly: true
