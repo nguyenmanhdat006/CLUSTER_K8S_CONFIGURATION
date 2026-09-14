@@ -20,28 +20,28 @@ spec:
 
         - alert: CertificateExpiringSoon
           expr: |
-            histogram_quantile(0.5, apiserver_client_certificate_expiration_seconds_bucket) < 30 * 86400
-          for: 1h
+            apiserver_client_certificate_expiration_seconds_bucket{le="31104000"} > 0
+          for: 1m
           labels:
             category: security
             severity: warning
           annotations:
-            summary: "Chứng chỉ API server sắp hết hạn trong 30 ngày"
+            summary: "[TEST] Có chứng chỉ API server sắp hết hạn (nguong tam thoi 360 ngay)"
 
         - alert: LoginFailureSpike
-          expr: sum(rate(login_failed_total[5m])) > 0.3
-          for: 5m
+          expr: sum(rate(login_failed_total[5m])) > 0.05
+          for: 1m
           labels:
             category: security
             severity: warning
           annotations:
-            summary: "Số lần đăng nhập thất bại vào ứng dụng tăng đột biến"
+            summary: "[TEST] Số lần đăng nhập thất bại vào ứng dụng tăng đột biến (nguong tam thoi 0.05)"
 
         - alert: AuditEventSpike
-          expr: sum(rate(apiserver_audit_event_total[5m])) > 5
-          for: 10m
+          expr: sum(rate(apiserver_audit_event_total[5m])) > 0.5
+          for: 1m
           labels:
             category: security
             severity: warning
           annotations:
-            summary: "Số sự kiện audit tăng bất thường — tra /var/log/kubernetes/audit.log để biết chi tiết ai đã làm gì"
+            summary: "[TEST] Số sự kiện audit tăng bất thường (nguong tam thoi 0.5) — tra /var/log/kubernetes/audit.log"
