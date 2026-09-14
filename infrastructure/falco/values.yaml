@@ -9,7 +9,11 @@ falco:
   json_include_output_property: true
 
 falcosidekick:
-  enabled: false
+  enabled: true
+  config:
+    existingSecret: "falco-telegram-secret"
+    telegram:
+      minimumpriority: "critical"
 
 metrics:
   enabled: true
