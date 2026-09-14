@@ -18,16 +18,6 @@ spec:
           annotations:
             summary: "Số lần xác thực thất bại vào API server tăng cao"
 
-        - alert: CertificateExpiringSoon
-          expr: |
-            apiserver_client_certificate_expiration_seconds_bucket{le="7.776e+06"} > 0
-          for: 1h
-          labels:
-            category: security
-            severity: warning
-          annotations:
-            summary: "Có chứng chỉ API server sẽ hết hạn trong 90 ngày tới"
-
         - alert: LoginFailureSpike
           expr: sum(rate(login_failed_total[5m])) > 0.05
           for: 2m
