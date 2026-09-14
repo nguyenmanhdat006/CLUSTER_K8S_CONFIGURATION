@@ -10,8 +10,8 @@ spec:
     - name: security
       rules:
         - alert: AuthenticationFailureSpike
-          expr: sum(rate(authentication_attempts{result="error"}[5m])) > 0.2
-          for: 5m
+          expr: sum(rate(authentication_attempts{result="error"}[5m])) > 0.05
+          for: 2m
           labels:
             category: security
             severity: warning
@@ -20,28 +20,28 @@ spec:
 
         - alert: CertificateExpiringSoon
           expr: |
-            apiserver_client_certificate_expiration_seconds_bucket{le="31104000"} > 0
-          for: 1m
+            apiserver_client_certificate_expiration_seconds_bucket{le="7.776e+06"} > 0
+          for: 1h
           labels:
             category: security
             severity: warning
           annotations:
-            summary: "[TEST] Có chứng chỉ API server sắp hết hạn (nguong tam thoi 360 ngay)"
+            summary: "Có chứng chỉ API server sẽ hết hạn trong 90 ngày tới"
 
         - alert: LoginFailureSpike
           expr: sum(rate(login_failed_total[5m])) > 0.05
-          for: 1m
+          for: 2m
           labels:
             category: security
             severity: warning
           annotations:
-            summary: "[TEST] Số lần đăng nhập thất bại vào ứng dụng tăng đột biến (nguong tam thoi 0.05)"
+            summary: "Số lần đăng nhập thất bại vào ứng dụng tăng đột biến"
 
         - alert: AuditEventSpike
-          expr: sum(rate(apiserver_audit_event_total[5m])) > 0.5
-          for: 1m
+          expr: sum(rate(apiserver_audit_event_total[5m])) > 1
+          for: 3m
           labels:
             category: security
             severity: warning
           annotations:
-            summary: "[TEST] Số sự kiện audit tăng bất thường (nguong tam thoi 0.5) — tra /var/log/kubernetes/audit.log"
+            summary: "Số sự kiện audit tăng bất thường — tra /var/log/kubernetes/audit.log để biết chi tiết ai đã làm gì"
