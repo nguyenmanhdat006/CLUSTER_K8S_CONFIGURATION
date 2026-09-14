@@ -1,0 +1,77 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: performance-alerts
+  namespace: monitoring
+  labels:
+    release: monitoring
+spec:
+  groups:
+    - name: performance
+      rules:
+        - alert: PodCrashLooping
+          expr: increase(kube_pod_container_status_restarts_total[1h]) > 3
+          for: 5m
+          labels:
+            category: performance
+            severity: warning
+          annotations:
+            summary: "Pod {{ $labels.namespace }}/{{ $labels.pod }} khởi động lại quá 3 lần trong 1 giờ"
+
+        - alert: PodPendingTooLong
+          expr: kube_pod_status_phase{phase="Pending"} == 1
+          for: 5m
+          labels:
+            category: performance
+            severity: warning
+          annotations:
+            summary: "Pod {{ $labels.namespace }}/{{ $labels.pod }} ở trạng thái Pending quá 5 phút"
+
+        - alert: DeploymentReplicasMismatch
+          expr: kube_deployment_status_replicas_unavailable > 0
+          for: 5m
+          labels:
+            category: performance
+            severity: warning
+          annotations:
+            summary: "Deployment {{ $labels.namespace }}/{{ $labels.deployment }} có bản sao không sẵn sàng quá 5 phút"
+
+        - alert: NodeNotReady
+          expr: kube_node_status_condition{condition="Ready",status="true"} == 0
+          for: 1m
+          labels:
+            category: performance
+            severity: critical
+          annotations:
+            summary: "Node {{ $labels.node }} không sẵn sàng quá 1 phút"
+
+        - alert: HighErrorRate
+          expr: |
+            (sum(rate(http_requests_total{status=~"5.."}[5m])) or vector(0))
+            / sum(rate(http_requests_total[5m])) > 0.01
+          for: 5m
+          labels:
+            category: performance
+            severity: critical
+          annotations:
+            summary: "Tỷ lệ lỗi 5xx vượt 1% trong 5 phút"
+
+        - alert: HighLatency
+          expr: |
+            histogram_quantile(0.99, sum by (le) (
+              rate(http_request_duration_seconds_bucket[5m]))) > 1
+          for: 10m
+          labels:
+            category: performance
+            severity: warning
+          annotations:
+            summary: "Độ trễ p99 vượt 1 giây trong 10 phút"
+
+        - alert: TargetDown
+          expr: up == 0
+          for: 5m
+          labels:
+            category: performance
+            severity: critical
+          annotations:
+            summary: "Target {{ $labels.job }} ({{ $labels.instance }}) không phản hồi quá 5 phút"

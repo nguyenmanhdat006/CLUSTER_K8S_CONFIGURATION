@@ -8,7 +8,7 @@ spec:
   source:
     repoURL: https://github.com/nguyenmanhdat006/CLUSTER_K8S_CONFIGURATION
     targetRevision: main
-    path: infrastructure/monitoring/servicemonitors
+    path: infrastructure/monitoring/extras
   destination:
     server: https://kubernetes.default.svc
   syncPolicy:
