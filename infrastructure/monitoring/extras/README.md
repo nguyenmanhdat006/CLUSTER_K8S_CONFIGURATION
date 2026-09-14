@@ -1,51 +1,61 @@
 # monitoring-extras
 
-ServiceMonitor cho các thành phần không thuộc chart `kube-prometheus-stack`.
-
-Chart cài sẵn ServiceMonitor cho control plane, node-exporter, kube-state-metrics và
-CoreDNS. Những thành phần còn lại — ingress-nginx, ứng dụng ecommerce — cần khai báo
-riêng, và thư mục này là nơi chứa chúng.
+Mọi resource Kubernetes bổ sung cho hệ giám sát mà **không thuộc về chart Helm**
+`kube-prometheus-stack` — ServiceMonitor cho các dịch vụ tự thêm, và PrometheusRule
+cho cảnh báo hiệu năng.
 
 Application Argo CD: `monitoring-extras` (khai báo tại `argocd/monitoring-extras.yaml`).
 
----
-
-## Cấu trúc
-
-```
-infrastructure/monitoring/servicemonitors/
-├── kustomization.yaml     danh sách file được apply
-├── ingress-nginx.yaml     Service + ServiceMonitor cho ingress-nginx
-└── README.md              file này
-```
+**Đã đổi tên thư mục** từ `servicemonitors` → `extras`, vì giờ chứa cả ServiceMonitor
+lẫn PrometheusRule, không chỉ ServiceMonitor như lúc đầu.
 
 ---
 
-## Luồng hoạt động
+## Vì sao cần thư mục này, tách khỏi Application `monitoring`
+
+`kube-prometheus-stack` là một chart Helm lấy từ nguồn ngoài
+(`prometheus-community.github.io/helm-charts`), quản lý bởi Application riêng tên
+`monitoring`. Chart đó tự tạo Prometheus, Grafana, Alertmanager, và một số
+ServiceMonitor/PrometheusRule mặc định cho control plane — nhưng **không biết gì về
+ingress-nginx hay backend ecommerce của bạn**, vì đó là thành phần nằm ngoài chart.
+
+`monitoring-extras` là nơi khai báo mọi thứ **riêng của cụm này**: ServiceMonitor để
+Prometheus biết đường lấy metric từ ingress-nginx/backend, và luật cảnh báo hiệu năng
+dành cho chính ứng dụng ecommerce.
 
 ```
-Git repo
-  └── servicemonitors/
-        ↑
-   Argo CD Application "monitoring-extras" đọc và apply
-        ↓
-   Cụm: Service mới xuất hiện
-        ↓
-   Prometheus Operator phát hiện ServiceMonitor → sinh cấu hình scrape
-        ↓
-   Prometheus scrape endpoint mỗi 30 giây
+Application "monitoring"         → chart Helm ngoài, hạ tầng giám sát chung
+Application "monitoring-extras"  → resource riêng của cụm này (thư mục extras/)
 ```
-
-Prometheus của kube-prometheus-stack không đọc file cấu hình scrape tĩnh. Nó tìm các
-object `ServiceMonitor` và `PodMonitor` trong cụm rồi tự sinh cấu hình. Vì vậy thêm một
-scrape target nghĩa là tạo một object, không phải sửa file cấu hình.
 
 ---
 
-## Điều kiện tiên quyết
+## Cấu trúc file
 
-Mặc định Prometheus chỉ nhận ServiceMonitor mang nhãn `release` trùng tên release Helm.
-ServiceMonitor trong thư mục này không có nhãn đó, nên cần nới selector trong
+```
+infrastructure/monitoring/extras/
+├── kustomization.yaml       danh sách file được apply
+├── ingress-nginx.yaml       Service (cổng metrics) + ServiceMonitor cho ingress-nginx
+├── backend.yaml             ServiceMonitor cho backend ecommerce
+└── performance-rules.yaml   7 luật cảnh báo hiệu năng (Mục 6.4)
+```
+
+```yaml
+# kustomization.yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ingress-nginx.yaml
+  - backend.yaml
+  - performance-rules.yaml
+```
+
+---
+
+## Điều kiện tiên quyết — đã thoả từ giai đoạn 2
+
+Mặc định Prometheus chỉ nhận ServiceMonitor/PrometheusRule mang nhãn `release` trùng
+tên release Helm. Các file trong thư mục này không có nhãn đó, nên cần ba dòng trong
 `infrastructure/monitoring/values.yaml`:
 
 ```yaml
@@ -56,212 +66,192 @@ prometheus:
     ruleSelectorNilUsesHelmValues: false
 ```
 
-Thiếu ba dòng này thì ServiceMonitor bị bỏ qua **trong im lặng** — không báo lỗi, không
-xuất hiện trong danh sách target, chỉ đơn giản là không có dữ liệu. Đây là nguyên nhân
-gây mất thời gian nhiều nhất khi tự viết ServiceMonitor.
-
-Đã áp dụng ở giai đoạn 2 của kế hoạch triển khai.
+Thiếu ba dòng này, ServiceMonitor/PrometheusRule bị bỏ qua **trong im lặng** — không
+báo lỗi, không xuất hiện trong danh sách target/rule, chỉ đơn giản không có tác dụng.
+Đã cấu hình từ giai đoạn 2, không cần làm lại.
 
 ---
 
-## ingress-nginx
+## 1. ingress-nginx.yaml — Service + ServiceMonitor
 
-### Vấn đề cần giải quyết
+### Vấn đề giải quyết
 
-Controller phát ra metric ở cổng `10254`, nhưng Service `ingress-nginx-controller` chỉ
-mở cổng 80 và 443. Prometheus chạy ở pod khác nên không có đường vào.
-
-Cổng 10254 không được khai báo trong `containerPort` của Deployment. Điều đó không ảnh
-hưởng: `containerPort` chỉ mang tính tài liệu, không mở hay đóng cổng nào. Tiến trình vẫn
-lắng nghe trên mọi interface — đã xác nhận bằng cách gọi trực tiếp vào IP pod từ node
-khác.
-
-### Cách giải quyết
-
-Tạo một Service ClusterIP thứ hai trỏ vào cổng 10254 của cùng pod, kèm ServiceMonitor
-tương ứng. Service phục vụ traffic (80/443) giữ nguyên, không đụng tới.
+Controller phát metric ở cổng `10254`, nhưng Service gốc `ingress-nginx-controller`
+chỉ mở cổng 80/443. File này tạo Service thứ hai trỏ vào cổng 10254, kèm ServiceMonitor
+để Prometheus scrape.
 
 ### Hai bộ nhãn — điểm dễ nhầm nhất
-
-Service có hai bộ nhãn với vai trò ngược nhau:
 
 | Trường | Dùng để | Giá trị |
 |---|---|---|
 | `metadata.labels` | ServiceMonitor tìm thấy **Service** | `component: controller-metrics` |
-| `spec.selector` | Service tìm thấy **pod** | `component: controller` |
+| `spec.selector` | Service tìm thấy **pod** | `component: controller` (sao chép từ Service gốc) |
 
-`spec.selector` phải sao chép nguyên từ Service đang chạy — nó đã hoạt động nên chắc
-chắn khớp:
+### Điều kiện bổ sung — `--enable-metrics=true`
+
+Manifest bare-metal chính thức của ingress-nginx đặt `--enable-metrics=false` mặc
+định. Đã patch thủ công qua `kubectl patch` (không qua Ansible, vì Ansible apply
+thẳng manifest từ URL, không đọc override). Cần patch lại nếu dựng lại cụm từ đầu —
+xem `k8s-ansible/README.md` để biết cách tự động hoá việc này sau.
 
 ```bash
-kubectl -n ingress-nginx get svc ingress-nginx-controller \
-  -o jsonpath='{.spec.selector}'; echo
+kubectl -n ingress-nginx get deploy ingress-nginx-controller \
+  -o jsonpath='{.spec.template.spec.containers[0].args}' | tr ',' '\n' | tail -1
+# phai la "--enable-metrics=true"
 ```
 
-`metadata.labels` cố ý dùng `controller-metrics` thay vì `controller`, để ServiceMonitor
-chọn đúng Service mới chứ không vớ phải Service 80/443.
+---
 
-Sai `spec.selector` thì Service vẫn được tạo bình thường nhưng không có Endpoint nào, và
-target sẽ hỏng theo cách khác hẳn lỗi kết nối thông thường — dễ chẩn đoán nhầm.
+## 2. backend.yaml — ServiceMonitor cho backend ecommerce
+
+### Vấn đề đã gặp — nhãn dùng chung giữa backend và frontend
+
+Service `backend` và `frontend` ban đầu cùng có nhãn `app.kubernetes.io/part-of:
+ecommerce` — ServiceMonitor theo nhãn đó sẽ khớp cả hai. Đã thêm nhãn riêng
+`app: backend` vào `metadata.labels` của Service (không đổi `spec.selector`).
+
+```yaml
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: backend
+  namespace: ecommerce
+spec:
+  selector:
+    matchLabels:
+      app: backend
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 30s
+```
 
 ### Metric thu được
 
-| Metric | Khung | Dùng ở đâu |
+`http_requests_total`, `http_request_duration_seconds_bucket`,
+`http_requests_in_flight` — theo khung RED, code tự viết ở giai đoạn 4. Dùng làm
+nguồn cho dashboard "Ứng dụng ecommerce" (Grafana) và 2 luật `HighErrorRate`/
+`HighLatency` trong `performance-rules.yaml`.
+
+---
+
+## 3. performance-rules.yaml — 7 luật cảnh báo hiệu năng
+
+Theo Mục 6.4 của tài liệu giám sát, nhãn `category: performance` để Alertmanager định
+tuyến riêng khỏi cảnh báo bảo mật.
+
+| Luật | Điều kiện | Mức |
 |---|---|---|
-| `nginx_ingress_controller_requests` | RED — Requests, Errors | Mục 4.7, 6.2, 7.1.1 |
-| `nginx_ingress_controller_request_duration_seconds` | RED — Duration | Mục 4.7, 6.2 |
+| PodCrashLooping | Khởi động lại > 3 lần / 1 giờ | warning |
+| PodPendingTooLong | Pending quá 5 phút | warning |
+| DeploymentReplicasMismatch | Bản sao không sẵn sàng quá 5 phút | warning |
+| NodeNotReady | Node không sẵn sàng quá 1 phút | critical |
+| HighErrorRate | Tỷ lệ lỗi 5xx > 1% trong 5 phút | critical |
+| HighLatency | p99 > 1 giây trong 10 phút | warning |
+| TargetDown | `up == 0` quá 5 phút | critical |
 
-Đây là RED tại điểm vào, có được mà **không cần sửa mã nguồn ứng dụng**. Metric ở tầng
-ứng dụng (`http_requests_total`) chính xác hơn nhưng phải chờ giai đoạn 4.
+Ngưỡng `HighErrorRate` (1%) và `HighLatency` (1 giây) khớp với ngưỡng đã đặt trong
+dashboard Grafana "Ứng dụng ecommerce" — nhất quán giữa nơi xem và nơi cảnh báo.
+
+**TargetDown quan trọng hơn vẻ ngoài:** nếu chính hệ giám sát chết, mọi cảnh báo khác
+trở nên vô nghĩa — đây là bài học từ sự cố kube-state-metrics ở giai đoạn 2, khi metric
+biến mất đúng lúc cần điều tra nhất mà biểu đồ vẫn trông "bình thường".
+
+### Kênh nhận cảnh báo — Telegram qua Alertmanager
+
+Alertmanager định tuyến `category: performance` và `category: security` tới cùng bot
+Telegram đã dùng cho Falco (`alertmanager-telegram-token` Secret, namespace
+`monitoring`, tái sử dụng token từ `falco-telegram-secret`). Cấu hình nằm trong
+`infrastructure/monitoring/values.yaml`, khối `alertmanager.config` — **không** trong
+thư mục `extras` này, vì đó là cấu hình của chính chart Helm `monitoring`.
+
+Token không commit Git — xem
+`infrastructure/monitoring/secret-alertmanager-telegram.example.yaml` để biết cách
+tạo Secret thật trên cụm.
 
 ---
 
-## Triển khai
-
-### Kiểm tra cú pháp trước
+## Áp dụng
 
 ```bash
-python3 -c "import yaml; list(yaml.safe_load_all(open('ingress-nginx.yaml')))" \
-  && echo "YAML hop le"
-```
-
-### Apply tay để thử
-
-Tách lỗi YAML khỏi lỗi GitOps:
-
-```bash
-kubectl apply -f ingress-nginx.yaml
-```
-
-### Đưa vào Git
-
-```bash
-git add infrastructure/monitoring/servicemonitors argocd/monitoring-extras.yaml
-git commit -m "monitoring: ServiceMonitor cho ingress-nginx"
+git add infrastructure/monitoring/extras argocd/monitoring-extras.yaml
+git commit -m "gom servicemonitors va rules vao thu muc extras, them 7 luat canh bao hieu nang"
 git push
-kubectl apply -f argocd/monitoring-extras.yaml
 ```
 
-Bước này cần thiết kể cả khi đã apply tay. Object nằm ngoài Git là object nằm ngoài tầm
-kiểm soát của Argo CD — chính là hiện tượng trôi cấu hình.
+Argo CD tự sync (`selfHeal: true`), hoặc:
+
+```bash
+argocd app sync monitoring-extras
+```
 
 ---
 
-## Xác minh, theo thứ tự
+## Xác minh
 
-Ba bước, mỗi bước loại bớt một nhóm nguyên nhân.
-
-### 1. Service có tìm thấy pod không
+### ServiceMonitor
 
 ```bash
+kubectl -n ecommerce get endpoints backend
 kubectl -n ingress-nginx get endpoints ingress-nginx-controller-metrics
+# Ca hai phai co IP pod, khong duoc <none>
+
+curl -s http://localhost:30090/api/v1/targets | \
+  jq -r '.data.activeTargets[] | select(.labels.job|test("backend|ingress")) | "\(.health) \(.labels.job)"'
 ```
 
-Cột `ENDPOINTS` phải có IP pod dạng `10.244.x.x:10254`.
-Nếu là `<none>` → `spec.selector` sai.
-
-### 2. ServiceMonitor có được Prometheus nhận không
+### PrometheusRule
 
 ```bash
-kubectl -n ingress-nginx get servicemonitor
+kubectl -n monitoring get prometheusrule performance-alerts
+
+curl -s http://localhost:30090/api/v1/rules | \
+  jq -r '.data.groups[] | select(.name=="performance") | .rules[].name'
+# phai liet ke du 7 ten luat
 ```
 
-Rồi mở `http://<node-ip>:30090/targets`, tìm job `ingress-nginx`.
-
-- Không thấy xuất hiện gì → selector của Prometheus chưa nới, xem phần điều kiện tiên quyết
-- Thấy nhưng DOWN → xem `lastError` để biết lý do
-
-### 3. Metric có dữ liệu không
-
-```promql
-nginx_ingress_controller_requests
-```
-
-Rỗng có thể chỉ vì chưa có traffic. Tạo ít traffic rồi thử lại:
+### Cảnh báo tới Telegram
 
 ```bash
-for i in $(seq 1 20); do curl -s -o /dev/null http://<node-ip>:31156/; done
+curl -s -X POST http://192.168.253.111:30093/api/v2/alerts -H "Content-Type: application/json" -d '[{
+  "labels": {"alertname": "TestAlert", "category": "performance", "severity": "warning"},
+  "annotations": {"summary": "Canh bao thu nghiem"}
+}]'
 ```
+
+Kiểm tra Telegram có tin nhắn mới — đã xác nhận hoạt động thật (ảnh chụp
+`Ecommerce bot noti` báo `TestAlert`, `category: performance`).
 
 ---
 
 ## Truy vấn thường dùng
 
 ```promql
-# Ty le loi 5xx toan he thong
-sum(rate(nginx_ingress_controller_requests{status=~"5.."}[5m]))
-  / sum(rate(nginx_ingress_controller_requests[5m]))
+# Ty le loi va do tre — nguon cua HighErrorRate / HighLatency
+sum(rate(http_requests_total{status=~"5.."}[5m])) / sum(rate(http_requests_total[5m]))
+histogram_quantile(0.99, sum by (le, route) (rate(http_request_duration_seconds_bucket[5m])))
 
-# Do tre p99 theo tung ingress
-histogram_quantile(0.99, sum by (le, ingress) (
-  rate(nginx_ingress_controller_request_duration_seconds_bucket[5m])))
+# Do quet endpoint — tin hieu bao mat, Muc 7.1.1
+sum by (ingress) (rate(nginx_ingress_controller_requests{status=~"401|403|404"}[5m]))
 
-# Tan suat request
-sum by (ingress) (rate(nginx_ingress_controller_requests[5m]))
-
-# Tin hieu bao mat: do quet endpoint
-sum by (ingress) (
-  rate(nginx_ingress_controller_requests{status=~"401|403|404"}[5m]))
-```
-
-Truy vấn cuối phục vụ Mục 7.1.1 của tài liệu đặc tả — phát hiện dò quét từ bên ngoài mà
-không cần thu thập access log.
-
----
-
-## Cấu hình liên quan trong ConfigMap của controller
-
-Nằm ngoài thư mục này vì ingress-nginx được cài qua Ansible, không qua Argo CD. Sửa
-trực tiếp:
-
-```bash
-kubectl -n ingress-nginx edit configmap ingress-nginx-controller
-```
-
-```yaml
-data:
-  generate-request-id: "true"
-  log-format-escape-json: "true"
-  log-format-upstream: '{"time":"$time_iso8601","request_id":"$req_id","remote_addr":"$remote_addr","method":"$request_method","uri":"$uri","status":$status,"duration":$request_time,"upstream_time":"$upstream_response_time","namespace":"$namespace","ingress":"$ingress_name","service":"$service_name","user_agent":"$http_user_agent"}'
-```
-
-`generate-request-id` yêu cầu controller sinh một mã duy nhất cho mỗi request và gắn vào
-tiêu đề `X-Request-ID` khi chuyển xuống backend. Đây là mắt xích đầu tiên của chuỗi truy
-vết ở Mục 8 — backend đọc mã này và ghi vào bảng `audit_events`.
-
-Bỏ qua bước này thì mọi bản ghi audit về sau đều không nối được với lưu lượng vào, và
-không sửa ngược lại được cho dữ liệu đã tích luỹ.
-
-`log-format-upstream` phải nằm trên **một dòng duy nhất**. Xuống dòng giữa chừng làm
-nginx không nạp được cấu hình — controller sẽ không reload, nhưng cụm vẫn chạy bình
-thường.
-
-Kiểm tra:
-
-```bash
-# Ma dinh danh da duoc sinh
-curl -s -D- -o /dev/null http://<node-ip>:31156/ | grep -i request-id
-
-# Access log da ra JSON
-kubectl -n ingress-nginx logs deploy/ingress-nginx-controller --tail=3
+# Pod crash loop — nguon cua PodCrashLooping
+increase(kube_pod_container_status_restarts_total[1h]) > 3
 ```
 
 ---
 
-## Thêm ServiceMonitor mới
+## Thêm ServiceMonitor hoặc PrometheusRule mới
 
-Ví dụ cho backend ở giai đoạn 4:
+1. Tạo file trong `infrastructure/monitoring/extras/`
+2. Thêm tên file vào `resources` của `kustomization.yaml`
+3. Commit, push — Argo CD tự sync
 
-1. Tạo file `backend.yaml` trong thư mục này
-2. Thêm `- backend.yaml` vào `resources` của `kustomization.yaml`
-3. Commit và push — Argo CD tự sync
-
-Hai điều cần nhớ khi viết:
-
-- **Port tham chiếu theo TÊN, không theo số.** Service phải có `name` cho port thì
-  ServiceMonitor mới trỏ tới được.
-- **Kiểm tra Endpoint trước khi debug Prometheus.** Phần lớn trường hợp "không có dữ
-  liệu" là do Service không tìm thấy pod, không phải do Prometheus.
+Hai điều cần nhớ:
+- **Port ServiceMonitor tham chiếu theo TÊN, không theo số** — Service phải có `name`
+  cho port
+- **Kiểm tra Endpoint trước khi debug Prometheus** — phần lớn trường hợp "không có dữ
+  liệu" là do Service không tìm thấy pod (nhãn `spec.selector` sai), không phải do
+  Prometheus
 
 ---
 
@@ -270,6 +260,6 @@ Hai điều cần nhớ khi viết:
 | Tài liệu | Nội dung |
 |---|---|
 | `bao-cao-giam-sat-kubernetes.docx` Mục 4.7 | Metric tầng mạng và Ingress |
-| `bao-cao-giam-sat-kubernetes.docx` Mục 5.6 | Access log tại Ingress |
-| `bao-cao-giam-sat-kubernetes.docx` Mục 7.1.1 | Tín hiệu bảo mật từ xác thực và phân quyền |
-| `ke-hoach-trien-khai-giam-sat.docx` Giai đoạn 3 | Kế hoạch và cách xác minh |
+| `bao-cao-giam-sat-kubernetes.docx` Mục 4.6.1 | Nhóm RED của ứng dụng |
+| `bao-cao-giam-sat-kubernetes.docx` Mục 6.3, 6.4 | Bảng điều khiển và cảnh báo hiệu năng |
+| `infrastructure/falco/README.md` | Cơ chế Telegram dùng chung, chi tiết Secret |

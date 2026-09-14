@@ -1,0 +1,47 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: security-alerts
+  namespace: monitoring
+  labels:
+    release: monitoring
+spec:
+  groups:
+    - name: security
+      rules:
+        - alert: AuthenticationFailureSpike
+          expr: sum(rate(authentication_attempts{result="error"}[5m])) > 0.2
+          for: 5m
+          labels:
+            category: security
+            severity: warning
+          annotations:
+            summary: "Số lần xác thực thất bại vào API server tăng cao"
+
+        - alert: CertificateExpiringSoon
+          expr: |
+            histogram_quantile(0.5, apiserver_client_certificate_expiration_seconds_bucket) < 30 * 86400
+          for: 1h
+          labels:
+            category: security
+            severity: warning
+          annotations:
+            summary: "Chứng chỉ API server sắp hết hạn trong 30 ngày"
+
+        - alert: LoginFailureSpike
+          expr: sum(rate(login_failed_total[5m])) > 0.3
+          for: 5m
+          labels:
+            category: security
+            severity: warning
+          annotations:
+            summary: "Số lần đăng nhập thất bại vào ứng dụng tăng đột biến"
+
+        - alert: AuditEventSpike
+          expr: sum(rate(apiserver_audit_event_total[5m])) > 5
+          for: 10m
+          labels:
+            category: security
+            severity: warning
+          annotations:
+            summary: "Số sự kiện audit tăng bất thường — tra /var/log/kubernetes/audit.log để biết chi tiết ai đã làm gì"

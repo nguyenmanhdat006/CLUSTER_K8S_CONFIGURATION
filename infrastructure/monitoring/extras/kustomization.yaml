@@ -4,3 +4,4 @@ resources:
   - ingress-nginx.yaml
   - backend.yaml
   - performance-rules.yaml
+  - security-rules.yaml
