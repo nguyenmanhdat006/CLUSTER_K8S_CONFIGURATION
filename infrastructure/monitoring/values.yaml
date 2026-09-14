@@ -30,6 +30,36 @@ alertmanager:
   service:
     type: NodePort
     nodePort: 30093                  # vào Alertmanager qua http://<node-ip>:30093
+  alertmanagerSpec:
+    secrets:
+      - alertmanager-telegram-token   # Secret tạo tay, xem infrastructure/monitoring/secret-alertmanager-telegram.example.yaml
+  config:
+    global:
+      resolve_timeout: 5m
+    route:
+      receiver: "telegram"
+      group_by: ["namespace", "alertname"]
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 12h
+      routes:
+        - matchers:
+            - alertname = "Watchdog"
+          receiver: "null"
+        - matchers:
+            - category = "security"
+          receiver: "telegram"
+          group_wait: 0s              # bao mat gui ngay, khong cho gom nhom
+        - matchers:
+            - category = "performance"
+          receiver: "telegram"
+    receivers:
+      - name: "null"
+      - name: "telegram"
+        telegram_configs:
+          - bot_token_file: /etc/alertmanager/secrets/alertmanager-telegram-token/token
+            chat_id: -5350831125
+            parse_mode: "HTML"
 
 # ---- Bộ thu thập số liệu ----
 nodeExporter:
