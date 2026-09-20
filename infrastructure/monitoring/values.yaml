@@ -4,10 +4,12 @@
 # ---- Grafana ----
 grafana:
   enabled: true
-  adminPassword: "demo123456"     # ĐỔI mật khẩu này trước khi push
+  adminPassword: "demo123456"
   service:
     type: NodePort
-    nodePort: 30300                  # vào Grafana qua http://<node-ip>:30300
+    nodePort: 30300
+  env:
+    GF_PLUGINS_PREINSTALL_DISABLED: "true"
 
 # ---- Prometheus ----
 prometheus:
