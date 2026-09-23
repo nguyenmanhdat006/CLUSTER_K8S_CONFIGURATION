@@ -1,7 +1,6 @@
 driver:
   kind: modern_ebpf
 
-hostPID: true
 tty: true
 
 falco:
@@ -17,6 +16,18 @@ falco:
     - name: json
       library_path: libjson.so
       init_config: ""
+
+falcoctl:
+  config:
+    artifact:
+      install:
+        refs:
+          - ghcr.io/falcosecurity/rules/falco-rules:3
+          - ghcr.io/falcosecurity/plugins/plugin/k8saudit:0.10.1
+      follow:
+        refs:
+          - ghcr.io/falcosecurity/rules/falco-rules:3
+          - ghcr.io/falcosecurity/plugins/plugin/k8saudit:0.10.1
 
 falcosidekick:
   enabled: true
@@ -143,18 +154,3 @@ customRules:
       priority: CRITICAL
       source: k8s_audit
       tags: [k8s_audit]
-
-    - rule: Exec vao pod qua kubectl
-      desc: Phat hien kubectl exec vao container dang chay
-      condition: ka.target.subresource=exec and ka.verb=create
-      output: "Exec vao pod (user=%ka.user.name pod=%ka.target.name namespace=%ka.target.namespace)"
-      priority: CRITICAL
-      source: k8s_audit
-      tags: [k8s_audit]
-
-falcoctl:
-  artifact:
-    install:
-      refs: [falco-rules:5, k8saudit:0.10.1]
-    follow:
-      refs: [falco-rules:5, k8saudit:0.10.1]
