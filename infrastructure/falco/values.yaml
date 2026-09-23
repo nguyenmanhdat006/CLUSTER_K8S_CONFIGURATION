@@ -151,3 +151,10 @@ customRules:
       priority: CRITICAL
       source: k8s_audit
       tags: [k8s_audit]
+
+falcoctl:
+  artifact:
+    install:
+      refs: [falco-rules:5, k8saudit:0.10.1]
+    follow:
+      refs: [falco-rules:5, k8saudit:0.10.1]
