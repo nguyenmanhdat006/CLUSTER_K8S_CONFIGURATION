@@ -149,6 +149,14 @@ customRules:
       tags: [host, filesystem, mitre_persistence]
 
   rules-k8s-audit.yaml: |-
+    - rule: TEST BAT MOI SU KIEN K8S AUDIT
+      desc: test tam thoi
+      condition: ka.verb exists
+      output: "TEST: verb=%ka.verb resource=%ka.target.resource name=%ka.target.name namespace=%ka.target.namespace"
+      priority: CRITICAL
+      source: k8s_audit
+      tags: [test]
+      
     - rule: Xoa Secret qua API server
       desc: Phat hien xoa Secret trong Kubernetes
       condition: ka.verb=delete and ka.target.resource=secrets
