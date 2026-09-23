@@ -75,3 +75,23 @@ spec:
             severity: critical
           annotations:
             summary: "Target {{ $labels.job }} ({{ $labels.instance }}) không phản hồi quá 5 phút"
+        
+        - alert: NodeCPUUsageHigh
+          expr: |
+            100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 50
+          for: 5m
+          labels:
+            category: performance
+            severity: warning
+          annotations:
+            summary: "CPU node {{ $labels.instance }} vượt 50% trong 5 phút"
+
+        - alert: PodCannotStart
+          expr: |
+            kube_pod_container_status_waiting_reason{reason=~"CrashLoopBackOff|ImagePullBackOff|ErrImagePull|CreateContainerError"} > 0
+          for: 5m
+          labels:
+            category: performance
+            severity: critical
+          annotations:
+            summary: "Pod {{ $labels.namespace }}/{{ $labels.pod }} không khởi động được ({{ $labels.reason }})"
