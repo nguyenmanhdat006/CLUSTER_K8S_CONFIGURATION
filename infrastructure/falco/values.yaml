@@ -7,6 +7,16 @@ tty: true
 falco:
   json_output: true
   json_include_output_property: true
+  load_plugins: [k8saudit, json]
+  plugins:
+    - name: k8saudit
+      library_path: libk8saudit.so
+      init_config:
+        maxEventSize: 262144
+      open_params: "/host/var/log/kubernetes/audit.log"
+    - name: json
+      library_path: libjson.so
+      init_config: ""
 
 falcosidekick:
   enabled: true
@@ -36,6 +46,9 @@ mounts:
     - name: user-ssh
       hostPath:
         path: /home/nguyendat/.ssh
+    - name: k8s-audit-log
+      hostPath:
+        path: /var/log/kubernetes
   volumeMounts:
     - name: var-lib-etcd
       mountPath: /host/var/lib/etcd
@@ -45,6 +58,9 @@ mounts:
       readOnly: true
     - name: user-ssh
       mountPath: /host/home/nguyendat/.ssh
+      readOnly: true
+    - name: k8s-audit-log
+      mountPath: /host/var/log/kubernetes
       readOnly: true
 
 customRules:
@@ -64,7 +80,7 @@ customRules:
       tags: [host, filesystem, mitre_credential_access]
 
     - rule: Đọc kubeconfig quản trị trên máy chủ
-      desc: Phát hiện đọc /etc/kubernetes/admin.conf trên máy chủ — bước đầu của đánh cắp quyền
+      desc: Phát hiện đọc /etc/kubernetes/admin.conf trên máy chủ
       condition: open_read and fd.name = /etc/kubernetes/admin.conf and not proc.name in (kubelet, kube-apiserver, etcd)
       output: "Doc kubeconfig quan tri tren may chu (file=%fd.name user=%user.name process=%proc.name pid=%proc.pid)"
       priority: CRITICAL
@@ -106,7 +122,7 @@ customRules:
       tags: [host, filesystem, mitre_privilege_escalation]
 
     - rule: Cài cắm khoá SSH trên máy chủ
-      desc: Phát hiện ghi vào authorized_keys trên máy chủ — kỹ thuật cài cắm quyền truy cập phổ biến nhất
+      desc: Phát hiện ghi vào authorized_keys trên máy chủ
       condition: open_write and (fd.name startswith /root/.ssh or fd.name startswith /home/nguyendat/.ssh)
       output: "Ghi vao authorized_keys tren may chu (file=%fd.name user=%user.name process=%proc.name pid=%proc.pid)"
       priority: CRITICAL
@@ -118,3 +134,20 @@ customRules:
       output: "Ghi vao cau hinh sshd tren may chu (file=%fd.name user=%user.name process=%proc.name pid=%proc.pid)"
       priority: WARNING
       tags: [host, filesystem, mitre_persistence]
+
+  rules-k8s-audit.yaml: |-
+    - rule: Xoa Secret qua API server
+      desc: Phat hien xoa Secret trong Kubernetes
+      condition: ka.verb=delete and ka.target.resource=secrets
+      output: "Secret bi xoa (user=%ka.user.name secret=%ka.target.name namespace=%ka.target.namespace)"
+      priority: CRITICAL
+      source: k8s_audit
+      tags: [k8s_audit]
+
+    - rule: Exec vao pod qua kubectl
+      desc: Phat hien kubectl exec vao container dang chay
+      condition: ka.target.subresource=exec and ka.verb=create
+      output: "Exec vao pod (user=%ka.user.name pod=%ka.target.name namespace=%ka.target.namespace)"
+      priority: CRITICAL
+      source: k8s_audit
+      tags: [k8s_audit]
