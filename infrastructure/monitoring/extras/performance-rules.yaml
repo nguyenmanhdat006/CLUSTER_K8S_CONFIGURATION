@@ -89,7 +89,7 @@ spec:
         - alert: PodCannotStart
           expr: |
             kube_pod_container_status_waiting_reason{reason=~"CrashLoopBackOff|ImagePullBackOff|ErrImagePull|CreateContainerError"} > 0
-          for: 5m
+          for: 2m
           labels:
             category: performance
             severity: critical
