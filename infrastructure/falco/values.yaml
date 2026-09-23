@@ -24,10 +24,12 @@ falcoctl:
         refs:
           - ghcr.io/falcosecurity/rules/falco-rules:3
           - ghcr.io/falcosecurity/plugins/plugin/k8saudit:0.10.1
+          - ghcr.io/falcosecurity/plugins/plugin/json:0.7.3
       follow:
         refs:
           - ghcr.io/falcosecurity/rules/falco-rules:3
           - ghcr.io/falcosecurity/plugins/plugin/k8saudit:0.10.1
+          - ghcr.io/falcosecurity/plugins/plugin/json:0.7.3
 
 falcosidekick:
   enabled: true
@@ -151,6 +153,14 @@ customRules:
       desc: Phat hien xoa Secret trong Kubernetes
       condition: ka.verb=delete and ka.target.resource=secrets
       output: "Secret bi xoa (user=%ka.user.name secret=%ka.target.name namespace=%ka.target.namespace)"
+      priority: CRITICAL
+      source: k8s_audit
+      tags: [k8s_audit]
+
+    - rule: Exec vao pod qua kubectl
+      desc: Phat hien kubectl exec vao container dang chay
+      condition: ka.target.subresource=exec and ka.verb=create
+      output: "Exec vao pod (user=%ka.user.name pod=%ka.target.name namespace=%ka.target.namespace)"
       priority: CRITICAL
       source: k8s_audit
       tags: [k8s_audit]
