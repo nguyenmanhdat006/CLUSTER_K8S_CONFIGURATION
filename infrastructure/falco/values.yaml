@@ -159,7 +159,7 @@ customRules:
 
     - rule: Exec vao pod qua kubectl
       desc: Phat hien kubectl exec vao container dang chay
-      condition: ka.target.subresource=exec and ka.verb=create
+      condition: ka.target.subresource=exec and ka.verb=get
       output: "Exec vao pod (user=%ka.user.name pod=%ka.target.name namespace=%ka.target.namespace)"
       priority: CRITICAL
       source: k8s_audit
