@@ -172,3 +172,11 @@ customRules:
       priority: CRITICAL
       source: k8s_audit
       tags: [k8s_audit]
+
+    - rule: DEBUG SECRET DELETE
+      desc: Debug xem co bat duoc su kien secret khong
+      condition: ka.target.resource="secrets"
+      output: "DEBUG SECRET: verb=%ka.verb resource=%ka.target.resource name=%ka.target.name"
+      priority: WARNING
+      source: k8s_audit
+      tags: [debug]
